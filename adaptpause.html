@@ -100,6 +100,7 @@ body.inard .ardwrap{display:none}
 #ardOv{position:absolute;inset:0;background:rgba(10,30,22,.94);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:20}
 .ovE{font-size:16vh}.ovT{font-size:7vh;font-weight:800}.ovX{font-size:3.6vh;color:#dfe;margin-top:.4em;line-height:1.4}
 .ardctl{display:flex;gap:10px;margin-top:8px}
+.mline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:.7em;font-size:.95em}.mline .chip{padding:.35em .8em}
 footer{margin-top:16px;color:var(--mut);font-size:.8em;text-align:center}
 </style>
 </head>
@@ -141,13 +142,8 @@ footer{margin-top:16px;color:var(--mut);font-size:.8em;text-align:center}
       <h3 style="margin-top:.8em">Thème</h3>
       <div class="chips" id="themeChips"></div>
       <div class="note" id="themeNote"></div>
-    </div>
-    <div class="box">
-      <h3>Musique</h3>
-      <div class="chips" id="musicChips"></div>
-          <div class="note" id="musicNote"></div>
-      <label class="row">Voix qui lit les consignes<br><span class="note">(ne fonctionne pas sur les ENI de la Ville)</span> <input type="checkbox" id="voice"></label>
-      <button class="small" id="testSnd" style="margin-top:.4em">🔊 Tester le son</button>
+      <div class="mline"><span>Musique</span><span class="chips" id="musicChips"></span><button class="small" id="testSnd">🔊 Test</button></div>
+      <label class="mline"><input type="checkbox" id="voice"> Voix qui lit les consignes <span class="note">(muette sur les ENI de la Ville)</span></label>
     </div>
     <div class="box">
       <h3>3. Retour au calme, doigts, silence</h3>
@@ -317,17 +313,14 @@ function renderChips(){
  chips($("lvlChips"),NIV.map((n,i)=>[i,n]),"ardLevel");
  chips($("modeChips"),[["assis","🪑 Assis – percussions corporelles"],["debout","🧍 Debout à côté de la chaise"]],"mode");
  chips($("themeChips"),[["auto","📅 Auto ("+THEMES[autoTheme()].label+")"],...Object.entries(THEMES).map(([k,t])=>[k,t.em+" "+t.label])],"theme");
- chips($("musicChips"),[["synth","🎻 Musique intégrée"],["none","🔇 Aucune"]],"music",updMusic);
+ chips($("musicChips"),[["synth","🎲 Aléatoire"],["none","🔇 Aucune"]],"music");
 }
-function updMusic(){
- $("musicNote").textContent=S.music==="synth"?"Canon de Pachelbel joué par l'appli, avec un tempo régulier : les élèves tapent sur les temps affichés.":""; }
 function initHome(){
  renderChips();
  slider("oralMin",fmtMin); slider("warnMin",v=>v==0?"off":v+" min"); slider("activeMin",fmtMin);
  slider("ardMin",v=>v+" min"); slider("yogaMin",fmtMin); slider("fingMin",fmtMin); slider("silSec",v=>v==0?"off":(v>=60?fmtMin(v/60):v+" s"));
  $("voice").checked=S.voice; $("voice").onchange=()=>{S.voice=$("voice").checked;save();};
  $("themeNote").textContent="Les mouvements restent les mêmes, leur habillage change avec le thème.";
- updMusic();
 }
 function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===id)); document.body.classList.toggle("inard",id==="ard"); document.body.classList.toggle("home",id==="home"); }
 
@@ -345,12 +338,20 @@ function wav(buf){const n=buf.length,ab=new ArrayBuffer(44+n*2),dv=new DataView(
  dv.setUint32(24,SR,true);dv.setUint32(28,SR*2,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);ws(36,"data");dv.setUint32(40,n*2,true);
  for(let i=0;i<n;i++){const v=Math.max(-1,Math.min(1,buf[i]));dv.setInt16(44+i*2,v*32767,true);} return new Blob([ab],{type:"audio/wav"});}
 const midi=n=>440*Math.pow(2,(n-69)/12);
-const CANON=[[50,54,57],[45,49,52],[47,50,54],[42,45,49],[43,47,50],[38,42,45],[43,47,50],[45,49,52]];
-function trackMusic(bpm,style){const sub=style==="calm"?1:2,dt=60/bpm/sub,beats=32,notes=[];
- for(let step=0;step<beats*sub;step++){const t=step*dt,beat=Math.floor(step/sub),bar=Math.floor(beat/4)%8,ch=CANON[bar],inBar=step%(4*sub);
-  if(style==="calm"){const n=[0,1,2,1][inBar%4];notes.push({f:midi(ch[n]+24),t,d:dt*1.8,g:.06,type:"sine"});if(inBar===0)notes.push({f:midi(ch[0]+12),t,d:dt*4,g:.06,type:"triangle"});}
-  else{const pat=[0,1,2,1,0,2,1,2],n=ch[pat[inBar%8]]+24+(inBar===3||inBar===7?12:0);notes.push({f:midi(n),t,d:dt*1.6,g:.07,type:"triangle"});
-   if(step%sub===0){if(beat%2===0)notes.push({f:midi(ch[0]),t,d:dt*3,g:.13,type:"sine"});notes.push({f:beat%4===0?1700:1200,t,d:.05,g:beat%4===0?.08:.04,type:"square"});}}}
+const SONGS=[
+ {name:"Canon (Pachelbel)",lead:"triangle",ch:[[50,54,57],[45,49,52],[47,50,54],[42,45,49],[43,47,50],[38,42,45],[43,47,50],[45,49,52]],pat:[0,1,2,1,0,2,1,2],up:[3,7]},
+ {name:"Prélude en do (Bach)",lead:"sine",ch:[[48,52,55,60,64],[48,50,57,62,65],[47,50,55,62,65],[48,52,55,60,64],[48,52,57,64,69],[48,50,54,57,62],[47,50,55,62,67],[47,48,52,55,60]],pat:[0,1,2,3,4,2,3,4],up:[],oct:12},
+ {name:"Promenade joyeuse",lead:"triangle",ch:[[55,59,62],[50,54,57],[52,55,59],[48,52,55],[55,59,62],[50,54,57],[52,55,59],[48,52,55]],pat:[0,2,1,2,0,2,1,2],up:[3,7]},
+ {name:"Sérénade espagnole",lead:"sine",ch:[[57,60,64],[55,59,62],[53,57,60],[52,56,59],[57,60,64],[55,59,62],[53,57,60],[52,56,59]],pat:[0,1,2,1,2,1,0,1],up:[2,6]},
+ {name:"Petit jazz",lead:"sine",ch:[[55,58,62,65],[48,52,55,58],[53,57,60,64],[50,53,57,60],[55,58,62,65],[48,52,55,58],[53,57,60,64],[53,57,60,64]],pat:[0,1,2,3,2,1,3,1],up:[]},
+ {name:"Boîte à musique",lead:"sine",ch:[[48,52,55],[53,57,60],[55,59,62],[48,52,55],[45,48,52],[53,57,60],[55,59,62],[48,52,55]],pat:[0,1,2,1,2,1,2,1],up:[2,4,6],oct:12}
+];
+let SONG=0;
+function trackMusic(bpm,style,si){const S_=SONGS[si||0],sub=style==="calm"?1:2,dt=60/bpm/sub,beats=32,notes=[],o=S_.oct||0;
+ for(let step=0;step<beats*sub;step++){const t=step*dt,beat=Math.floor(step/sub),bar=Math.floor(beat/4)%8,ch=S_.ch[bar],inBar=step%(4*sub),L=ch.length;
+  if(style==="calm"){const n=[0,1,2,1][inBar%4]%L;notes.push({f:midi(ch[n]+24+o-(o?12:0)),t,d:dt*1.8,g:.06,type:"sine"});if(inBar===0)notes.push({f:midi(ch[0]+12),t,d:dt*4,g:.06,type:"triangle"});}
+  else{const n=ch[S_.pat[inBar%8]%L]+24+o-(L>3?12:0)+(S_.up.includes(inBar)?12:0);notes.push({f:midi(n),t,d:dt*1.6,g:.07,type:S_.lead});
+   if(step%sub===0){if(beat%2===0)notes.push({f:midi(ch[0]-(ch[0]>52?12:0)),t,d:dt*3,g:.13,type:"sine"});notes.push({f:beat%4===0?1700:1200,t,d:.05,g:beat%4===0?.08:.04,type:"square"});}}}
  return synth(beats*60/bpm,notes,true);}
 const SFX={
  beeps:()=>synth(1.1,[0,.35,.7].map((x,i)=>({f:i==2?1320:880,t:x,d:.25,g:.35,type:"square"}))),
@@ -367,7 +368,7 @@ function softBell(){ play("bell",.8); }
 function blip(){ play("blip",.7); }
 const MUSICS=[[96,"pulse"],[84,"pulse"],[56,"calm"],[64,"calm"]];
 const Music={ el:null,base:1,
- start(bpm,style){ this.stop(); const el=snd(`m_${style}_${bpm}`,()=>trackMusic(bpm,style)); el.loop=true; el.muted=false; this.base=style==="calm"?.55:.75;
+ start(bpm,style){ this.stop(); const el=snd(`m_${style}_${bpm}_${SONG}`,()=>trackMusic(bpm,style,SONG)); el.loop=true; el.muted=false; this.base=style==="calm"?.55:.75;
   el.volume=this.base; try{ el.currentTime=0; const p=el.play(); if(p) p.catch(()=>{}); }catch(e){} this.el=el; },
  vol(v){ if(this.el) this.el.volume=Math.max(0,Math.min(1,this.base*v)); },
  pause(){ if(this.el) this.el.pause(); },
@@ -375,7 +376,7 @@ const Music={ el:null,base:1,
  stop(){ if(this.el){ this.el.pause(); this.el=null; } }
 };
 /* préparation des sons en tâche de fond, puis « déverrouillage » au premier clic */
-(function prep(){ const jobs=[...Object.keys(SFX).map(k=>()=>snd(k,SFX[k])),...MUSICS.map(([b,s])=>()=>snd(`m_${s}_${b}`,()=>trackMusic(b,s)))];
+(function prep(){ const jobs=[...Object.keys(SFX).map(k=>()=>snd(k,SFX[k])),...MUSICS.map(([b,s])=>()=>snd(`m_${s}_${b}_0`,()=>trackMusic(b,s,0)))];
  let i=0; (function next(){ if(i<jobs.length){ try{jobs[i++]();}catch(e){} setTimeout(next,30);} })(); })();
 function primeAll(){ Object.values(SND).forEach(el=>{ if(!el.paused) return; el.muted=true; const p=el.play();
  if(p) p.then(()=>{ if(el.muted){ el.pause(); el.currentTime=0; el.muted=false; } }).catch(()=>{ el.muted=false; }); else el.muted=false; }); }
@@ -708,7 +709,9 @@ function buildSteps(){
 }
 function figCtx(s){const cc=R.phaseT%10;let b=cc<4?cc/4:1-(cc-4)/6;b=b*b*(3-2*b);
  return {beat:R.phaseT*(s.bpm||60)/60,t:R.el,pt:R.phaseT,dur:s.dur,b};}
-function startRun(){ R.steps=buildSteps(); if(!R.steps.length){show("home");return;}
+function startRun(){ if(S.music!=="none"){ let k; do{ k=RI(0,SONGS.length-1); }while(SONGS.length>1&&k===SONG&&R.started); SONG=k; R.started=1;
+  MUSICS.forEach(([b,st])=>snd(`m_${st}_${b}_${SONG}`,()=>trackMusic(b,st,SONG))); primeAll(); }
+ R.steps=buildSteps(); if(!R.steps.length){show("home");return;}
  R.idx=-1; R.phase=null; R.paused=false; $("runPause").textContent="⏸ Pause"; show("run"); goStep(0);
  clearInterval(R.iv); R.last=performance.now(); R.iv=setInterval(runTick,50); }
 function phasesList(){ return [...new Set(R.steps.map(s=>s.ph))]; }
@@ -742,7 +745,7 @@ function runTick(){
  const n=performance.now(), dt=(n-R.last)/1000; R.last=n; if(R.paused) return;
  const s=R.steps[R.idx]; R.el+=dt; R.phaseT+=dt;
  $("stepBar").style.width=Math.min(100,100*R.el/s.dur)+"%";
- const rest=R.steps.slice(R.idx).reduce((a,x)=>a+x.dur,0)-R.el; $("runLeft").textContent="Reste "+Math.ceil(rest/60)+" min environ";
+ const rest=R.steps.slice(R.idx).reduce((a,x)=>a+x.dur,0)-R.el; $("runLeft").textContent=(S.music!=="none"?"♪ "+SONGS[SONG].name+" · ":"")+"Reste "+Math.ceil(rest/60)+" min environ";
  if(s.beat){ const b=Math.floor(R.phaseT*s.bpm/60)%4; [...$("beats").children].forEach((d,k)=>d.classList.toggle("on",k===b)); }
  if(s.breathe){ $("breath").textContent=(R.phaseT%10)<4?"Inspire…":"Expire…"; }
  if(s.silence){ $("breath").textContent=Math.ceil(s.dur-R.el)+" s"; }
